@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo 'PR'
+
 cd ../ocaml
 opam switch create custom --empty
 opam install .
