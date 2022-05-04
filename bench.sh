@@ -1,16 +1,12 @@
 #!/bin/sh
 
-echo 'PR'
+export BENCHMARK_FILE=$(realpath $(mktemp bench.XXX.tsv))
+export NB_RUNS=1
+export HERE=$(realpath "$(dirname "$0")")
 
 cd ../ocaml
 opam switch create custom --empty
 opam install .
-
-
-export NB_RUNS=1
-export BENCHMARK_FILE="$1"
-HERE=$(realpath "$(dirname "$0")")
-export HERE
 
 binaries() {
   project=$1
@@ -33,7 +29,7 @@ timings () {
     | awk "{sum[\$2] += \$1} END{for (i in sum) print \"projects\\t$project/\" i \"\\t\" sum[i] \"\tsecs\"}" \
     >> "$BENCHMARK_FILE"
   binaries "$project"
-  LC_NUMERIC=POSIX awk -f "${HERE}/testsuite/tests/benchmarks/to_json.awk" < "$BENCHMARK_FILE"
+  LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" < "$BENCHMARK_FILE"
   rm "$BENCHMARK_FILE"
 }
 
