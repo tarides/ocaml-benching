@@ -2,7 +2,7 @@
 
 export BENCHMARK_FILE=$(realpath $(mktemp bench.XXX.tsv))
 export NB_RUNS=1
-export HERE=$(realpath "$(dirname "$0")")
+export HERE=$(realpath .)
 
 cd ../ocaml
 git checkout 4.11.2
