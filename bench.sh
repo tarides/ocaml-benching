@@ -5,6 +5,7 @@ export NB_RUNS=1
 export HERE=$(realpath "$(dirname "$0")")
 
 cd ../ocaml
+git checkout 4.11.2
 opam switch create custom --empty
 opam install .
 
