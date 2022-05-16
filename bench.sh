@@ -5,8 +5,9 @@ export NB_RUNS=1
 export HERE=$(realpath .)
 
 cd ../ocaml
-git checkout 4.06.1
+git checkout 4.08.0
 opam switch create custom --empty
+eval $(opam env --switch=custom)
 opam install .
 
 binaries() {
@@ -60,8 +61,6 @@ bootstrap () {
     timings 'ocaml'
   done
 }
-
-eval $(opam env)
 
 # opam switch create . --empty
 # opam pin -ny .
