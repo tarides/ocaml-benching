@@ -10,7 +10,7 @@ export HERE=$(realpath .)
 # eval $(opam env --switch=custom)
 # opam install .
 
-opam switch create 4.07.1
+opam switch create 4.06.0
 
 
 binaries() {
