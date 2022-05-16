@@ -4,11 +4,14 @@ export BENCHMARK_FILE=$(realpath $(mktemp bench.XXX.tsv))
 export NB_RUNS=1
 export HERE=$(realpath .)
 
-cd ../ocaml
-git checkout 4.08.0
-opam switch create custom --empty
-eval $(opam env --switch=custom)
-opam install .
+# cd ../ocaml
+# git checkout 4.08.0
+# opam switch create custom --empty
+# eval $(opam env --switch=custom)
+# opam install .
+
+opam switch create 4.07.1
+
 
 binaries() {
   project=$1
@@ -179,13 +182,13 @@ for i in $(seq 1 "$NB_RUNS"); do
 done
 cd ..
 
-dune_build deque
+# dune_build deque
 
 opam_build ocaml-containers
 
 opam_build decompress
 
-opam_build menhir '--only-packages=menhir'
+# opam_build menhir '--only-packages=menhir'
 
 # dune_build mirage
 
