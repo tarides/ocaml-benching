@@ -4,7 +4,8 @@ RUN sudo apt-get update && sudo apt-get install -qq -yy libffi-dev \
         liblmdb-dev m4 pkg-config gnuplot-x11 libgmp-dev libssl-dev \
         libpcre3-dev curl build-essential \
         liblapacke-dev libopenblas-dev libplplot-dev libshp-dev \
-        zlib1g-dev libgtksourceview-3.0-dev
+        zlib1g-dev libgtksourceview-3.0-dev \
+        libexpat1-dev libgnomecanvas2-dev libgtk2.0-dev
 
 RUN opam remote add origin https://opam.ocaml.org --all-switches \
     && opam repository add opam-repo https://github.com/ocaml/opam-repository.git --all-switches \
