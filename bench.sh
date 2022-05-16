@@ -143,7 +143,7 @@ opam_build() {
   project=$1
   target=${2:-.}
   cd "$project"
-  opam pin -ny .
+  opam pin -ny --with-version=dev .
   opam install -y -t --deps-only .
   cd ..
   dune_build "$project" "$target"
@@ -156,7 +156,7 @@ opam_build ocamlgraph
 
 cd irmin
 git checkout 2.9.0
-opam pin -ny .
+opam pin -ny --with-version=dev .
 opam install -y --deps-only .
 for i in $(seq 1 "$NB_RUNS"); do
   rm -f build.log
