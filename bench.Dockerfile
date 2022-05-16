@@ -7,6 +7,8 @@ RUN sudo apt-get update && sudo apt-get install -qq -yy libffi-dev \
         zlib1g-dev libgtksourceview-3.0-dev \
         libexpat1-dev libgnomecanvas2-dev libgtk2.0-dev
 
+RUN sudo rm /usr/bin/opam && sudo ln -s /usr/bin/opam-2.1 /usr/bin/opam
+
 RUN opam remote add origin https://opam.ocaml.org --all-switches \
     && opam repository add opam-repo https://github.com/ocaml/opam-repository.git --all-switches \
     && opam repository add alpha git+https://github.com/kit-ty-kate/opam-alpha-repository --all-switches \

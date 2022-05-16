@@ -120,6 +120,7 @@ opam switch list
 cd ..
 
 cd dune
+opam install -y -t --deps-only .
 for i in $(seq 1 "$NB_RUNS"); do
   rm -f build.log
   make clean
