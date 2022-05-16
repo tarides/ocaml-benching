@@ -4,11 +4,16 @@ export BENCHMARK_FILE=$(realpath $(mktemp bench.XXX.tsv))
 export NB_RUNS=1
 export HERE=$(realpath .)
 
-cd ../ocaml
-git checkout 4.08.0
-opam switch create custom --empty
-eval $(opam env --switch=custom)
-opam install .
+# cd ../ocaml
+# git checkout 4.08.0
+# opam switch create custom --empty
+# eval $(opam env --switch=custom)
+# opam install .
+
+opam switch create 4.07.1
+eval $(opam env --switch=4.07.1)
+opam switch list
+ocaml --version
 
 binaries() {
   project=$1
@@ -78,31 +83,6 @@ bootstrap () {
 # opam install base-unix base-bigarray base-threads
 # eval $(opam env)
 
-echo
-echo '--- IS OCAML OKAY? ---'
-echo
-
-ocaml --version
-
-opam switch list
-
-echo
-echo '--- IS OCAML OKAY? AND NOW? ---'
-echo
-
-eval $(opam env --switch=. --set-switch)
-
-ocaml --version
-
-opam switch list
-
-# echo
-# echo '--- OCAML BOOTSRAP ---'
-# echo
-# 
-# bootstrap
-
-ocaml --version
 
 echo
 echo '--- DUNE WILL BE INSTALLED ---'
@@ -179,13 +159,13 @@ for i in $(seq 1 "$NB_RUNS"); do
 done
 cd ..
 
-dune_build deque
+# dune_build deque
 
 opam_build ocaml-containers
 
 opam_build decompress
 
-opam_build menhir '--only-packages=menhir'
+# opam_build menhir '--only-packages=menhir'
 
 # dune_build mirage
 
