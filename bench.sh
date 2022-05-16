@@ -10,8 +10,8 @@ export HERE=$(realpath .)
 # eval $(opam env --switch=custom)
 # opam install .
 
-opam switch create 4.07.1
-eval $(opam env --switch=4.07.1)
+opam switch create 4.06.0
+eval $(opam env --switch=4.06.0)
 opam switch list
 ocaml --version
 
