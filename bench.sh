@@ -30,7 +30,7 @@ binaries() {
   >> "$BENCHMARK_FILE"
 }
 
-timings () {
+timings() {
   project=$1
   sed 's/^-  / /g' build.log \
     | grep '^\s\s[0-9]\+\.[0-9]\+s ' \
@@ -38,17 +38,23 @@ timings () {
     >> "$BENCHMARK_FILE"
 }
 
-project_build () {
+print_benchmark_stats() {
+  project=$1
+  version=$2
+  timings "${project}"
+  binaries "${project}" "${version}"
+  LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" < "$BENCHMARK_FILE"
+  rm "$BENCHMARK_FILE"
+}
+
+project_build() {
   project=$1
   version=$2
   for i in $(seq 1 "$NB_RUNS"); do
     rm -f build.log
     opam uninstall "${project}" -y
     OCAMLPARAM=",_,timings=1" opam install -b --verbose -y "${project}=${version}" | tee -a build.log | sed 's/^{/ {/'
-    timings "${project}"
-    binaries "${project}" "${version}"
-    LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" < "$BENCHMARK_FILE"
-    rm "$BENCHMARK_FILE"
+    print_benchmark_stats "${1}" "${2}"
   done
 }
 
