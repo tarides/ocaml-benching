@@ -1,23 +1,25 @@
 #!/bin/sh
 
 export NB_RUNS=1
-export BENCHMARK_FILE="$1"
+BENCHMARK_FILE="$(realpath "${1}")"
+export BENCHMARK_FILE
 HERE=$(realpath "$(dirname "$0")")
 export HERE
 
 OCAML_VERSION="4.14.0"
 OCAML_SWITCH="ocaml-benching"
-opam switch remove "${OCAML_SWITCH}" --yes
-opam switch create -b "${OCAML_SWITCH}" "${OCAML_VERSION}"
-eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
-ocaml --version
-opam switch list
 
 binaries() {
   project=$1
   version=$2
-  build_dir="${OPAM_SWITCH_PREFIX}/.opam-switch/build/${project}.${version}/_build/default/"
-  find "${build_dir}" -type f \
+  if [ "${project}" = "ocaml" ]; then
+    project_dir="ocaml-base-compiler.${version}";
+  else
+    project_dir="${project}.${version}/_build/default/";
+  fi
+  build_dir="${OPAM_SWITCH_PREFIX}/.opam-switch/build/${project_dir}"
+  cd "${build_dir}" || exit
+  find . -type f \
     | grep -ve '\.git' -ve '_opam' -ve '.aliases' -ve '.merlin' \
     | xargs -n1 file -i \
     | grep 'binary$' \
@@ -27,7 +29,8 @@ binaries() {
     | grep -ve '\s\..*' \
     | sed -E 's;([0-9]+).*\.(.*);\1\t\2;g' \
     | awk "{sum[\$2] += \$1} END{for (i in sum) print \"binaries\\t$project/\" i \"\\t\" sum[i] \"\tkb\"}" \
-  >> "$BENCHMARK_FILE"
+    >> "$BENCHMARK_FILE"
+  cd "${HERE}" || exit
 }
 
 timings() {
@@ -47,6 +50,18 @@ print_benchmark_stats() {
   rm "$BENCHMARK_FILE"
 }
 
+bootstrap() {
+  for i in $(seq 1 "$NB_RUNS"); do
+    rm -f build.log
+    opam switch remove "${OCAML_SWITCH}" --yes
+    OCAMLPARAM=",_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" | tee -a build.log
+    eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
+    ocaml --version
+    opam switch list
+    print_benchmark_stats "ocaml" "${OCAML_VERSION}"
+  done
+}
+
 project_build() {
   project=$1
   version=$2
@@ -58,6 +73,7 @@ project_build() {
   done
 }
 
+bootstrap
 project_build dune 3.2.0
 project_build decompress 1.4.2
 project_build ocamlgraph 2.0.0
