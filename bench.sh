@@ -47,7 +47,7 @@ print_benchmark_stats() {
   version=$2
   timings "${project}"
   binaries "${project}" "${version}"
-  LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" < "$BENCHMARK_FILE"
+  LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" -v TARGET_PROJECT_VERSION="${version}" < "$BENCHMARK_FILE"
   rm "$BENCHMARK_FILE"
 }
 
