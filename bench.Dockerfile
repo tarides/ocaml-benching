@@ -17,3 +17,5 @@ RUN opam remote add origin https://opam.ocaml.org --all-switches \
 RUN mkdir ocaml-benching
 WORKDIR ocaml-benching
 COPY --chown=opam:opam . .
+ARG OCAML_VERSION
+ENV OCAML_VERSION=${OCAML_VERSION}
