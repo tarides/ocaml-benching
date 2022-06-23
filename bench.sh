@@ -1,12 +1,13 @@
 #!/bin/sh
 
+echo "OCAML_VERSION=${OCAML_VERSION}"
+
 export NB_RUNS=1
 BENCHMARK_FILE="$(realpath "${1}")"
 export BENCHMARK_FILE
 HERE=$(realpath "$(dirname "$0")")
 export HERE
 
-OCAML_VERSION="4.14.0"
 OCAML_SWITCH="ocaml-benching"
 
 binaries() {
