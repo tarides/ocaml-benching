@@ -3,7 +3,7 @@
 echo "OCAML_VERSION=${OCAML_VERSION}"
 
 export NB_RUNS=1
-BENCHMARK_FILE="$(realpath "${1}")"
+BENCHMARK_FILE="$(realpath "${1:-sample.tsv}")"
 export BENCHMARK_FILE
 HERE=$(realpath "$(dirname "$0")")
 export HERE
