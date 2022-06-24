@@ -1,6 +1,21 @@
 #!/bin/sh
 
+# The script bootstraps an OCaml switch using a specified OCaml version, and
+# runs benchmarks by building a fixed set of projects at specific versions.
+
+# OCAML_VERSION environment variable can be used to specify a specific version
+# of OCaml to use to run the benchmarks. If the env var is not set, the latest
+# trunk of ocaml/ocaml is used.
+
+OCAML_VERSION="${OCAML_VERSION:-latest}"
 echo "OCAML_VERSION=${OCAML_VERSION}"
+
+if [ "${OCAML_VERSION}" = "latest" ];
+then
+    export BUILDING_TRUNK=1
+else
+    export BUILDING_TRUNK=0
+fi
 
 export NB_RUNS=1
 BENCHMARK_FILE="$(realpath "${1:-sample.tsv}")"
@@ -13,13 +28,17 @@ OCAML_SWITCH="ocaml-benching"
 binaries() {
   project=$1
   version=$2
-  if [ "${project}" = "ocaml" ]; then
-    project_dir="ocaml-base-compiler.${version}";
+  if [ "${BUILDING_TRUNK}" = "1" ] && [ "${project}" = "ocaml" ] ; then
+      build_dir="$(pwd)"
   else
-    project_dir="${project}.${version}/_build/default/";
+      if [ "${project}" = "ocaml" ]; then
+          project_dir="ocaml-base-compiler.${version}";
+      else
+          project_dir="${project}.${version}/_build/default/";
+      fi
+      build_dir="${OPAM_SWITCH_PREFIX}/.opam-switch/build/${project_dir}"
+      cd "${build_dir}" || exit
   fi
-  build_dir="${OPAM_SWITCH_PREFIX}/.opam-switch/build/${project_dir}"
-  cd "${build_dir}" || exit
   find . -type f \
     | grep -ve '\.git' -ve '_opam' -ve '.aliases' -ve '.merlin' \
     | xargs -n1 file -i \
@@ -51,25 +70,51 @@ print_benchmark_stats() {
   rm "$BENCHMARK_FILE"
 }
 
-bootstrap() {
-  for i in $(seq 1 "$NB_RUNS"); do
+create_switch_by_version() {
     rm -f build.log
-    opam switch remove "${OCAML_SWITCH}" --yes
-    OCAMLPARAM=",_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" | tee -a build.log
+    OCAMLPARAM=",_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" 2>&1 | tee -a build.log
     eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
+}
+
+create_switch_latest() {
+    OCAMLPARAM=",_,timings=1" opam switch create --empty -b -v "${OCAML_SWITCH}"
+    eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
+    OCAML_DIR="${HERE}/../ocaml"
+    if [ ! -d "${OCAML_DIR}" ]; then
+        git clone https://github.com/ocaml/ocaml "${OCAML_DIR}"
+    fi
+    cd "${OCAML_DIR}" || exit
+    opam install . --yes
+    make clean
+    rm -f build.log
+    ./configure
+    OCAMLPARAM=",_,timings=1" make world.opt 2>&1 | tee -a build.log
+    OCAML_VERSION=$(git rev-parse HEAD)
+}
+
+bootstrap() {
+  for _ in $(seq 1 "$NB_RUNS"); do
+    opam switch remove "${OCAML_SWITCH}" --yes
+    if [ "${BUILDING_TRUNK}" = "1" ]
+    then
+        create_switch_latest
+    else
+        create_switch_by_version
+    fi
     ocaml --version
     opam switch list
     print_benchmark_stats "ocaml" "${OCAML_VERSION}"
   done
 }
 
+
 project_build() {
   project=$1
   version=$2
-  for i in $(seq 1 "$NB_RUNS"); do
+  for _ in $(seq 1 "$NB_RUNS"); do
     rm -f build.log
     opam uninstall "${project}" -y
-    OCAMLPARAM=",_,timings=1" opam install -b --verbose -y "${project}=${version}" | tee -a build.log | sed 's/^{/ {/'
+    OCAMLPARAM=",_,timings=1" opam install -b --verbose -y "${project}=${version}" 2>&1 | tee -a build.log | sed 's/^{/ {/'
     print_benchmark_stats "${1}" "${2}"
   done
 }
