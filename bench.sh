@@ -31,7 +31,9 @@ binaries() {
   if [ "${BUILDING_TRUNK}" = "1" ] && [ "${project}" = "ocaml" ] ; then
       build_dir="$(pwd)"
   else
-      if [ "${project}" = "ocaml" ]; then
+      if [ "${project}" = "ocaml" ] && [[ "${version}" == *+* ]]; then
+          project_dir="ocaml-variants.${version}";
+      elif [ "${project}" = "ocaml" ]; then
           project_dir="ocaml-base-compiler.${version}";
       else
           project_dir="${project}.${version}/_build/default/";
