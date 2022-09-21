@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # The script bootstraps an OCaml switch using a specified OCaml version, and
 # runs benchmarks by building a fixed set of projects at specific versions.
