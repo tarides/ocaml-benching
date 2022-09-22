@@ -74,12 +74,12 @@ print_benchmark_stats() {
 
 create_switch_by_version() {
     rm -f build.log
-    OCAMLPARAM=",_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" 2>&1 | tee -a build.log
+    OCAMLPARAM="_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" 2>&1 | tee -a build.log
     eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
 }
 
 create_switch_latest() {
-    OCAMLPARAM=",_,timings=1" opam switch create --empty -b -v "${OCAML_SWITCH}"
+    OCAMLPARAM="_,timings=1" opam switch create --empty -b -v "${OCAML_SWITCH}"
     eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
     OCAML_DIR="${HERE}/../ocaml"
     if [ ! -d "${OCAML_DIR}" ]; then
@@ -90,7 +90,7 @@ create_switch_latest() {
     make clean
     rm -f build.log
     ./configure
-    OCAMLPARAM=",_,timings=1" make world.opt 2>&1 | tee -a build.log
+    OCAMLPARAM="_,timings=1" make world.opt 2>&1 | tee -a build.log
     OCAML_VERSION=$(git rev-parse HEAD)
 }
 
@@ -116,7 +116,7 @@ project_build() {
   for _ in $(seq 1 "$NB_RUNS"); do
     rm -f build.log
     opam uninstall "${project}" -y
-    OCAMLPARAM=",_,timings=1" opam install -b --verbose -y "${project}=${version}" 2>&1 | tee -a build.log | sed 's/^{/ {/'
+    OCAMLPARAM="_,timings=1" opam install -b --verbose -y "${project}=${version}" 2>&1 | tee -a build.log | sed 's/^{/ {/'
     print_benchmark_stats "${1}" "${2}"
   done
 }
