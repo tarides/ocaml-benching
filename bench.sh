@@ -63,10 +63,25 @@ timings() {
     >> "$BENCHMARK_FILE"
 }
 
+timings_old_ocaml() {
+  project=$1
+  sed 's/^- //g' build.log \
+      | grep -P '^.+\(.+\):' \
+      | sed 's/(.*)://g' \
+      | sed 's/s$//g' \
+      | awk "{sum[\$1] += \$2} END{for (i in sum) print \"projects\\t$project/\" i \"\\t\" sum[i] \"\tsecs\"}" \
+    >> "$BENCHMARK_FILE"
+}
+
 print_benchmark_stats() {
   project=$1
   version=$2
-  timings "${project}"
+  if [[ "${OCAML_VERSION}" = 4.05* ]] && ! [[ "${project}" =~ dune ]];
+  then
+      timings_old_ocaml "${project}"
+  else
+      timings "${project}"
+  fi
   binaries "${project}" "${version}"
   LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" -v TARGET_PROJECT_VERSION="${version}" < "$BENCHMARK_FILE"
   rm "$BENCHMARK_FILE"
