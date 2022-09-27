@@ -137,11 +137,9 @@ project_build() {
 }
 
 bootstrap
-project_build dune 3.2.0
-project_build decompress 1.4.2
+# NOTE: When adding a new project, test building with OCAML_VERSION=4.05.0 and
+# use the timings_old_ocaml parser for it, if required.
+project_build dune 3.4.1
 project_build ocamlgraph 2.0.0
-# FIXME: Also installs menhirLib & menhirSdk (previously '--only-packages=menhir')
 project_build menhir 20220210
-# FIXME: Not on opam repo
-# project_build ocaml-containers
-# project_build deque
+project_build ppxlib 0.27.0
