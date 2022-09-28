@@ -8,6 +8,7 @@
 # trunk of ocaml/ocaml is used.
 
 OCAML_VERSION="${OCAML_VERSION:-latest}"
+OCAML_VERSION="4.05.0"
 echo "OCAML_VERSION=${OCAML_VERSION}"
 
 if [ "${OCAML_VERSION}" = "latest" ];
