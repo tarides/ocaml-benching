@@ -26,10 +26,19 @@ export HERE
 
 OCAML_SWITCH="ocaml-benching"
 
+building_from_git() {
+    if [ "${BUILDING_TRUNK}" = "1" ] || [[ "${OCAML_VERSION}" =~ 4.(09|10|11|12|13).* ]]
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
 binaries() {
   project=$1
   version=$2
-  if [ "${BUILDING_TRUNK}" = "1" ] && [ "${project}" = "ocaml" ] ; then
+  if building_from_git && [ "${project}" = "ocaml" ] ; then
       build_dir="$(pwd)"
   else
       if [ "${project}" = "ocaml" ] && [[ "${version}" == *+* ]]; then
@@ -88,13 +97,20 @@ print_benchmark_stats() {
   rm "$BENCHMARK_FILE"
 }
 
-create_switch_by_version() {
+fix_makefile_opcodes_target() {
+  # Work around issue with generating opcodes with timing information turned on
+  sed -i 's/$(CAMLC) -i $< > $@/OCAMLPARAM=",_,timings=0" $(CAMLC) -i $< > $@/g' Makefile
+}
+
+create_switch_from_opam_version() {
+    echo "Using OCaml from opam ..."
     rm -f build.log
     OCAMLPARAM="_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" 2>&1 | tee -a build.log
     eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
 }
 
-create_switch_latest() {
+create_switch_from_git_version() {
+    echo "Using OCaml from git ..."
     OCAMLPARAM="_,timings=1" opam switch create --empty -b -v "${OCAML_SWITCH}"
     eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
     OCAML_DIR="${HERE}/../ocaml"
@@ -102,22 +118,32 @@ create_switch_latest() {
         git clone https://github.com/ocaml/ocaml "${OCAML_DIR}"
     fi
     cd "${OCAML_DIR}" || exit
+    if ! [ "${BUILDING_TRUNK}" = "1" ];
+    then
+        git reset --hard "${OCAML_VERSION}"
+        fix_makefile_opcodes_target
+    else
+        git reset --hard trunk
+    fi
     opam install . --yes
     make clean
     rm -f build.log
     ./configure
     OCAMLPARAM="_,timings=1" make world.opt 2>&1 | tee -a build.log
-    OCAML_VERSION=$(git rev-parse HEAD)
+    if [ "${BUILDING_TRUNK}" = "1" ];
+    then
+        OCAML_VERSION=$(git rev-parse HEAD)
+    fi
 }
 
 bootstrap() {
   for _ in $(seq 1 "$NB_RUNS"); do
     opam switch remove "${OCAML_SWITCH}" --yes
-    if [ "${BUILDING_TRUNK}" = "1" ]
+    if building_from_git
     then
-        create_switch_latest
+        create_switch_from_git_version
     else
-        create_switch_by_version
+        create_switch_from_opam_version
     fi
     ocaml --version
     opam switch list
