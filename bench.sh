@@ -137,6 +137,7 @@ create_switch_from_git_version() {
 }
 
 bootstrap() {
+  opam repository add ocaml-beta --set-default git+https://github.com/ocaml/ocaml-beta-repository.git
   for _ in $(seq 1 "$NB_RUNS"); do
     opam switch remove "${OCAML_SWITCH}" --yes
     if building_from_git
