@@ -167,6 +167,11 @@ project_build() {
   done
 }
 
+setup_requirements() {
+    sudo apt-get update && sudo apt-get install -qq -yy --no-install-recommends file
+}
+
+setup_requirements
 bootstrap
 # NOTE: When adding a new project, test building with OCAML_VERSION=4.05.0 and
 # use the timings_old_ocaml parser for it, if required.
