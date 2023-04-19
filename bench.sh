@@ -112,7 +112,11 @@ create_switch_from_git_version() {
     echo "Using OCaml from git ..."
     OCAMLPARAM="_,timings=1" opam switch create --empty -b -v "${OCAML_SWITCH}"
     eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
-    OCAML_DIR="${HERE}/../ocaml"
+    if [ -f "${HERE}/../VERSION" ]; then
+        OCAML_DIR="${HERE}/../"
+    else
+        OCAML_DIR="${HERE}/../ocaml"
+    fi
     if [ ! -d "${OCAML_DIR}" ]; then
         git clone https://github.com/ocaml/ocaml "${OCAML_DIR}"
     fi
