@@ -177,5 +177,5 @@ bootstrap
 # use the timings_old_ocaml parser for it, if required.
 project_build dune 3.4.1
 project_build ocamlgraph 2.0.0
-project_build menhir 20220210
+project_build menhir 20230608
 project_build ppxlib 0.27.0
