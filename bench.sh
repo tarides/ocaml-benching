@@ -1,17 +1,55 @@
-#!/bin/sh
+#!/bin/bash
 
-cd ../ocaml
-opam switch create custom --empty
-opam install .
+# The script bootstraps an OCaml switch using a specified OCaml version, and
+# runs benchmarks by building a fixed set of projects at specific versions.
 
+# OCAML_VERSION environment variable can be used to specify a specific version
+# of OCaml to use to run the benchmarks. If the env var is not set, the latest
+# trunk of ocaml/ocaml is used.
+
+OCAML_VERSION="${OCAML_VERSION:-latest}"
+echo "OCAML_VERSION=${OCAML_VERSION}"
+
+if [ "${OCAML_VERSION}" = "latest" ];
+then
+    export BUILDING_TRUNK=1
+else
+    export BUILDING_TRUNK=0
+fi
 
 export NB_RUNS=1
-export BENCHMARK_FILE="$1"
+BENCHMARK_FILE="$(realpath "${1:-sample.tsv}")"
+export BENCHMARK_FILE
 HERE=$(realpath "$(dirname "$0")")
 export HERE
 
+OCAML_SWITCH="ocaml-benching"
+
+building_from_git() {
+    if [ "${BUILDING_TRUNK}" = "1" ] || [[ "${OCAML_VERSION}" =~ 4.(09|10|11|12|13).* ]]
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
 binaries() {
   project=$1
+  version=$2
+  if building_from_git && [ "${project}" = "ocaml" ] ; then
+      build_dir="$(pwd)"
+  else
+      if [ "${project}" = "ocaml" ] && [[ "${version}" == *+* ]]; then
+          project_dir="ocaml-variants.${version}";
+      elif [ "${project}" = "ocaml" ]; then
+          project_dir="ocaml-base-compiler.${version}";
+      else
+          project_dir="${project}.${version}/_build/default/";
+      fi
+      build_dir="${OPAM_SWITCH_PREFIX}/.opam-switch/build/${project_dir}"
+      cd "${build_dir}" || exit
+  fi
   find . -type f \
     | grep -ve '\.git' -ve '_opam' -ve '.aliases' -ve '.merlin' \
     | xargs -n1 file -i \
@@ -22,255 +60,122 @@ binaries() {
     | grep -ve '\s\..*' \
     | sed -E 's;([0-9]+).*\.(.*);\1\t\2;g' \
     | awk "{sum[\$2] += \$1} END{for (i in sum) print \"binaries\\t$project/\" i \"\\t\" sum[i] \"\tkb\"}" \
-  >> "$BENCHMARK_FILE"
+    >> "$BENCHMARK_FILE"
+  cd "${HERE}" || exit
 }
 
-timings () {
+timings() {
   project=$1
-  grep '^\s\s[0-9]\+\.[0-9]\+s ' build.log \
+  sed 's/^-  / /g' build.log \
+    | grep '^\s\s[0-9]\+\.[0-9]\+s ' \
     | awk "{sum[\$2] += \$1} END{for (i in sum) print \"projects\\t$project/\" i \"\\t\" sum[i] \"\tsecs\"}" \
     >> "$BENCHMARK_FILE"
-  binaries "$project"
-  LC_NUMERIC=POSIX awk -f "${HERE}/testsuite/tests/benchmarks/to_json.awk" < "$BENCHMARK_FILE"
+}
+
+timings_old_ocaml() {
+  project=$1
+  sed 's/^- //g' build.log \
+      | grep -P '^.+\(.+\):' \
+      | sed 's/(.*)://g' \
+      | sed 's/s$//g' \
+      | awk "{sum[\$1] += \$2} END{for (i in sum) print \"projects\\t$project/\" i \"\\t\" sum[i] \"\tsecs\"}" \
+    >> "$BENCHMARK_FILE"
+}
+
+print_benchmark_stats() {
+  project=$1
+  version=$2
+  if [[ "${OCAML_VERSION}" = 4.05* ]] && ! [[ "${project}" =~ dune ]];
+  then
+      timings_old_ocaml "${project}"
+  else
+      timings "${project}"
+  fi
+  binaries "${project}" "${version}"
+  LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" -v TARGET_PROJECT_VERSION="${version}" < "$BENCHMARK_FILE"
   rm "$BENCHMARK_FILE"
 }
 
-dune_build () {
-  project=$1
-  target=${2:-.}
-  cd "$project"
-  for i in $(seq 1 "$NB_RUNS"); do
-    rm -f build.log
-    dune clean
-    echo
-    echo
-    echo "@@@@@@@@@@@ dune build $project $target"
-    echo
-    echo
-    OCAMLPARAM=",_,timings=1" dune build --verbose --profile=release "$target" 2>&1 | tee -a build.log | sed 's/^{/ {/'
-    timings "$project"
-  done
-  cd ..
+fix_makefile_opcodes_target() {
+  # Work around issue with generating opcodes with timing information turned on
+  sed -i 's/$(CAMLC) -i $< > $@/OCAMLPARAM=",_,timings=0" $(CAMLC) -i $< > $@/g' Makefile
 }
 
-bootstrap () {
-  for i in $(seq 1 "$NB_RUNS"); do
+create_switch_from_opam_version() {
+    echo "Using OCaml from opam ..."
     rm -f build.log
+    OCAMLPARAM="_,timings=1" opam switch create -b -v "${OCAML_SWITCH}" "${OCAML_VERSION}" 2>&1 | tee -a build.log
+    eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
+}
+
+create_switch_from_git_version() {
+    echo "Using OCaml from git ..."
+    OCAMLPARAM="_,timings=1" opam switch create --empty -b -v "${OCAML_SWITCH}"
+    eval "$(opam env --switch=${OCAML_SWITCH} --set-switch)"
+    if [ -f "${HERE}/../VERSION" ]; then
+        OCAML_DIR="${HERE}/../"
+    else
+        OCAML_DIR="${HERE}/../ocaml"
+    fi
+    if [ ! -d "${OCAML_DIR}" ]; then
+        git clone https://github.com/ocaml/ocaml "${OCAML_DIR}"
+    fi
+    cd "${OCAML_DIR}" || exit
+    if ! [ "${BUILDING_TRUNK}" = "1" ];
+    then
+        git reset --hard "${OCAML_VERSION}"
+        fix_makefile_opcodes_target
+    else
+        git reset --hard trunk
+    fi
+    opam install . --yes
     make clean
-          OCAMLPARAM=",_,timings=1" make world.opt | tee -a build.log | sed 's/^{/ {/'
-    timings 'ocaml'
+    rm -f build.log
+    ./configure
+    OCAMLPARAM="_,timings=1" make world.opt 2>&1 | tee -a build.log
+    if [ "${BUILDING_TRUNK}" = "1" ];
+    then
+        OCAML_VERSION=$(git rev-parse HEAD)
+    fi
+}
+
+bootstrap() {
+  opam repository add ocaml-beta --set-default git+https://github.com/ocaml/ocaml-beta-repository.git
+  for _ in $(seq 1 "$NB_RUNS"); do
+    opam switch remove "${OCAML_SWITCH}" --yes
+    if building_from_git
+    then
+        create_switch_from_git_version
+    else
+        create_switch_from_opam_version
+    fi
+    ocaml --version
+    opam switch list
+    print_benchmark_stats "ocaml" "${OCAML_VERSION}"
   done
 }
 
-eval $(opam env)
 
-# opam switch create . --empty
-# opam pin -ny .
-
-# ./configure --prefix=$(opam var prefix)
-# make world.opt | sed 's/^{/ {/'
-# echo
-# echo '--- OCAML WILL BE INSTALLED ---'
-# echo
-# opam install --assume-built --debug -y .
-# 
-# echo
-# echo '--- OCAML DEPENDENCIES WILL BE INSTALLED ---'
-# echo
-# opam install base-unix base-bigarray base-threads
-# eval $(opam env)
-
-echo
-echo '--- IS OCAML OKAY? ---'
-echo
-
-ocaml --version
-
-opam switch list
-
-echo
-echo '--- IS OCAML OKAY? AND NOW? ---'
-echo
-
-eval $(opam env --switch=. --set-switch)
-
-ocaml --version
-
-opam switch list
-
-# echo
-# echo '--- OCAML BOOTSRAP ---'
-# echo
-# 
-# bootstrap
-
-ocaml --version
-
-echo
-echo '--- DUNE WILL BE INSTALLED ---'
-echo
-# opam update
-eval $(opam env)
-ocaml --version
-opam install -y dune
-eval $(opam env)
-ocaml --version
-
-opam switch list
-
-cd ..
-
-cd dune
-for i in $(seq 1 "$NB_RUNS"); do
-  rm -f build.log
-  make clean
-  OCAMLPARAM=",_,timings=1" make release 2>&1 | tee -a build.log | sed 's/^{/ {/'
-  timings "dune"
-done
-cd ..
-
-
-opam install -y num
-eval $(opam env)
-opam install -y ppxlib.0.24.0
-eval $(opam env)
-opam install -y sexplib
-eval $(opam env)
-opam install -y git-unix git-paf
-eval $(opam env)
-
-
-opam_build() {
+project_build() {
   project=$1
-  target=${2:-.}
-  cd "$project"
-  opam pin -ny .
-  opam install -y -t --deps-only .
-  cd ..
-  dune_build "$project" "$target"
+  version=$2
+  for _ in $(seq 1 "$NB_RUNS"); do
+    rm -f build.log
+    opam uninstall "${project}" -y
+    OCAMLPARAM="_,timings=1" opam install -b --verbose -y "${project}=${version}" 2>&1 | tee -a build.log | sed 's/^{/ {/'
+    print_benchmark_stats "${1}" "${2}"
+  done
 }
 
+setup_requirements() {
+    sudo apt-get update && sudo apt-get install -qq -yy --no-install-recommends file
+}
 
-opam_build ocamlgraph
-
-
-
-cd irmin
-git checkout 2.9.0
-opam pin -ny .
-opam install -y --deps-only .
-for i in $(seq 1 "$NB_RUNS"); do
-  rm -f build.log
-  dune clean
-  OCAMLPARAM=",_,timings=1" dune build --verbose --profile=release @install 2>&1 | tee -a build.log | sed 's/^{/ {/'
-  timings "irmin"
-done
-cd ..
-
-
-cd opam
-opam install crowbar
-opam install -y -t --deps-only .
-./configure
-for i in $(seq 1 "$NB_RUNS"); do
-  rm -f build.log
-  make clean
-  OCAMLPARAM=",_,timings=1" make 2>&1 | tee -a build.log | sed 's/^{/ {/'
-  timings "opam"
-done
-cd ..
-
-dune_build deque
-
-opam_build ocaml-containers
-
-opam_build decompress
-
-opam_build menhir '--only-packages=menhir'
-
-# dune_build mirage
-
-# cd zarith
-# echo 'opam install conf-gmp'
-# opam install --debug -y conf-gmp
-# echo 'opam install ocamlfind'
-# opam install --debug -y ocamlfind
-#
-# echo
-# echo
-#
-# opam show ocaml
-#
-# echo
-# echo
-#
-# echo 'opam config set version'
-# opam config set sys-ocaml-version 4.14.0
-# echo 'opam config set-global version'
-# opam config set-global sys-ocaml-version 4.14.0
-#
-# opam show ocaml
-#
-# echo
-# echo
-#
-#
-# opam pin --debug -ny .
-# echo 'pin zarith okay!'
-# echo
-# rm -f build.log
-# ./configure
-# OCAMLPARAM=",_,timings=1" make 2>&1 | tee -a build.log
-# timings "zarith"
-# echo 'opam config set version'
-# opam config set sys-ocaml-version 4.14.0
-# echo 'opam config set-global version'
-# opam config set-global sys-ocaml-version 4.14.0
-# echo 'ok now?'
-# echo
-# eval $(opam env)
-# opam install --debug -y --assume-built zarith.1.12 ./zarith.opam
-# cd ..
-
-### Issue with zarith
-# opam install -y lablgtk3-sourceview3
-# export CAML_LD_LIBRARY_PATH="$(realpath ocaml/_opam/lib/stublibs):$CAML_LD_LIBRARY_PATH"
-# cd coq
-# rm -f build.log
-# opam pin -ny .
-# OCAMLPARAM=",_,timings=1" dune build --verbose --profile=release . 2>&1 | tee -a build.log
-# timings "coq"
-# cd ..
-
-
-
-# opam_build owl # errors with non-erasable optional arguments
-# dune_build js-monorepo # requires ppxlib
-
-### !!! Can't actually install lwt, as it depends on ppxlib which requires caml<4.14 !!!
-### echo
-### echo '--- LWT WILL BE INSTALLED ---'
-### echo
-###
-### cd lwt
-### opam install -y result ppxlib react luv
-### opam pin -n .
-### opam install -y -t --deps-only .
-### eval $(opam env)
-### cd ..
-### dune_build lwt
-### cd lwt
-### opam install --assume-built --debug -y .
-### cd ..
-###
-### echo
-### echo '--- LWT INSTALLED ---'
-### echo
-
-### !!! Irmin also depends on lwt !!!
-### cd irmin
-### opam install -y logs
-### opam install -y -t --deps-only .
-### eval $(opam env)
-### cd ..
-### dune_build irmin
+setup_requirements
+bootstrap
+# NOTE: When adding a new project, test building with OCAML_VERSION=4.05.0 and
+# use the timings_old_ocaml parser for it, if required.
+project_build dune 3.4.1
+project_build ocamlgraph 2.0.0
+project_build menhir 20230608
+project_build ppxlib 0.27.0

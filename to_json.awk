@@ -14,7 +14,8 @@
 }
 
 END {
-    print "{ \"results\": ["
+    print "{ \"config\": {\"target_project_version\": \"" TARGET_PROJECT_VERSION "\"}, "
+    print "  \"results\": ["
     for (test in tests) {
         nb_metrics = tests[test]
         print "  { \"name\": \"" test "\","
