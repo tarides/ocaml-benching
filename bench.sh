@@ -146,6 +146,9 @@ create_switch_from_git_version() {
     then
         OCAML_VERSION=$(git rev-parse HEAD)
     fi
+    # Set invariant to prevent OCaml version changes
+    INVARIANT_VERSION=$(opam list -i ocaml --columns=version --short)
+    opam switch set-invariant ocaml="${INVARIANT_VERSION}"
 }
 
 bootstrap() {
