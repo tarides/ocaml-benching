@@ -37,6 +37,7 @@ building_from_git() {
 binaries() {
   project=$1
   version=$2
+  bench_name=$project
   if building_from_git && [ "${project}" = "ocaml" ] ; then
       build_dir="$(pwd)"
   else
@@ -46,6 +47,7 @@ binaries() {
           project_dir="ocaml-base-compiler.${version}";
       else
           project_dir="${project}.${version}/_build/default/";
+          bench_name="${project}-${version}"
       fi
       build_dir="${OPAM_SWITCH_PREFIX}/.opam-switch/build/${project_dir}"
       cd "${build_dir}" || exit
@@ -59,13 +61,20 @@ binaries() {
     | sed -E 's;\..*/(.*);\1;g' \
     | grep -ve '\s\..*' \
     | sed -E 's;([0-9]+).*\.(.*);\1\t\2;g' \
-    | awk "{sum[\$2] += \$1} END{for (i in sum) print \"binaries\\t$project/\" i \"\\t\" sum[i] \"\tkb\"}" \
+    | awk "{sum[\$2] += \$1} END{for (i in sum) print \"binaries\\t$bench_name/\" i \"\\t\" sum[i] \"\tkb\"}" \
     >> "$BENCHMARK_FILE"
   cd "${HERE}" || exit
 }
 
 timings() {
   project=$1
+  version=$2
+  bench_name=$project
+  if [ "${project}" = "ocaml" ]; then
+      bench_name="${project}"
+  else
+      bench_name="${project}-${version}"
+  fi
   sed 's/^-  / /g' build.log \
     | grep '^\s\s[0-9]\+\.[0-9]\+s ' \
     | awk "{sum[\$2] += \$1} END{for (i in sum) print \"projects\\t$project/\" i \"\\t\" sum[i] \"\tsecs\"}" \
@@ -89,7 +98,7 @@ print_benchmark_stats() {
   then
       timings_old_ocaml "${project}"
   else
-      timings "${project}"
+      timings "${project}" "${version}"
   fi
   binaries "${project}" "${version}"
   LC_NUMERIC=POSIX awk -f "${HERE}/to_json.awk" -v TARGET_PROJECT_VERSION="${version}" < "$BENCHMARK_FILE"
