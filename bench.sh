@@ -77,7 +77,7 @@ timings() {
   fi
   sed 's/^-  / /g' build.log \
     | grep '^\s\s[0-9]\+\.[0-9]\+s ' \
-    | awk "{sum[\$2] += \$1} END{for (i in sum) print \"projects\\t$project/\" i \"\\t\" sum[i] \"\tsecs\"}" \
+    | awk "{sum[\$2] += \$1} END{for (i in sum) print \"projects\\t$bench_name/\" i \"\\t\" sum[i] \"\tsecs\"}" \
     >> "$BENCHMARK_FILE"
 }
 
